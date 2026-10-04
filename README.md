@@ -120,3 +120,9 @@ Run the tests with `go test ./...`.
 - The Windows build is the one in use on a live board. The Linux builds compile and pass tests but haven't been run on a real board yet.
 - On Linux, the `door32.sys` socket handle is treated as an inherited file descriptor, and the view command runs through `/bin/sh`. NetFoss doesn't apply.
 - The door never closes the caller's socket, so the BBS keeps the connection when it exits.
+
+## License
+
+Copyright (C) 2026 Martin Kazmaier. Distributed under the [Q Public License version 1.0](LICENSE), the same license as EleBBS.
+
+If you distribute the binaries, include the `LICENSE` file and point recipients to the source at <https://github.com/martykazmaier/filelist>.
