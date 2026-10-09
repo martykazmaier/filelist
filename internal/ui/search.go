@@ -6,7 +6,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 
 	"filelist/internal/comm"
 	"filelist/internal/elebbs"
@@ -21,7 +20,7 @@ func (a *App) prompt(label string) (string, error) {
 		if _, err := fmt.Fprintf(a.Out, "\x1b[%d;1H\x1b[?25h\x1b[0;30;47m%s\x1b[0m", rowStatus, padVis(line, screenW)); err != nil {
 			return "", err
 		}
-		ev, err := a.Keys.Next(5 * time.Minute)
+		ev, err := a.nextKey()
 		if err != nil || ev.Key == comm.KeyHangup {
 			return "", io.EOF
 		}
@@ -55,7 +54,7 @@ func (a *App) promptScope() (elebbs.ScanScope, error) {
 		if _, err := fmt.Fprintf(a.Out, "\x1b[%d;1H\x1b[?25h\x1b[0;30;47m%s\x1b[0m", rowStatus, padVis(line, screenW)); err != nil {
 			return 0, err
 		}
-		ev, err := a.Keys.Next(5 * time.Minute)
+		ev, err := a.nextKey()
 		if err != nil || ev.Key == comm.KeyHangup {
 			return 0, io.EOF
 		}

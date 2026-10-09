@@ -63,6 +63,9 @@ type App struct {
 	Handle   uintptr
 	User     string
 	Security int
+	Idle     time.Duration
+	Hangup   func()
+	idled    bool
 	home     []elebbs.FileEntry
 	listing  string
 	cursor   int
@@ -81,7 +84,7 @@ func Run(a *App) error {
 		return err
 	}
 	for {
-		ev, err := a.Keys.Next(30 * time.Minute)
+		ev, err := a.nextKey()
 		if err != nil {
 			return a.shutdown()
 		}
@@ -200,7 +203,7 @@ func (a *App) peekName() error {
 
 func (a *App) waitDismiss() error {
 	for {
-		ev, err := a.Keys.Next(30 * time.Minute)
+		ev, err := a.nextKey()
 		if err != nil || ev.Key == comm.KeyHangup {
 			return io.EOF
 		}

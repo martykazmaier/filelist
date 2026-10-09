@@ -117,6 +117,7 @@ Run the tests with `go test ./...`.
 
 ## Notes
 
+- The inactivity limit is taken from `UserTimeOut` in `CONFIG.RA`, the same setting EleBBS uses. Callers are warned 30 seconds before the limit and hung up when it runs out. A limit of 0, or `-local` mode, turns this off. Time spent in the viewer doesn't count.
 - The Windows build is the one in use on a live board. The Linux builds compile and pass tests but haven't been run on a real board yet.
 - On Linux, the `door32.sys` socket handle is treated as an inherited file descriptor, and the view command runs through `/bin/sh`. NetFoss doesn't apply.
 - The door never closes the caller's socket, so the BBS keeps the connection when it exits.

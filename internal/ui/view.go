@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"filelist/internal/comm"
 	"filelist/internal/elebbs"
@@ -158,7 +157,7 @@ func (a *App) pager(title string, data []byte, runErr error) {
 		b.WriteString("\x1b[0m")
 		_, _ = a.Out.Write([]byte(b.String()))
 
-		ev, err := a.Keys.Next(30 * time.Minute)
+		ev, err := a.nextKey()
 		if err != nil {
 			return
 		}

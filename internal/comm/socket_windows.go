@@ -403,3 +403,12 @@ func (s *stdioStream) Write(p []byte) (int, error)        { return s.out.Write(p
 func (s *stdioStream) Close() error                       { RestoreConsole(); return nil }
 func (s *stdioStream) SetReadDeadline(t time.Time) error  { return nil }
 func (s *stdioStream) SetWriteDeadline(t time.Time) error { return nil }
+
+// Hangup drops the caller by shutting down the inherited socket in both
+// directions; the BBS then sees the connection close.
+func Hangup(handle uintptr) {
+	if handle == 0 || handle == invalidSocket {
+		return
+	}
+	_ = windows.Shutdown(windows.Handle(handle), windows.SHUT_RDWR)
+}

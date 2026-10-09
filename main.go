@@ -121,6 +121,10 @@ func run() int {
 		User:     user,
 		Security: drop.Security,
 	}
+	if !*local && !drop.Local {
+		app.Idle = elebbs.ReadUserTimeOut(sysPath)
+		app.Hangup = func() { comm.Hangup(drop.Handle) }
+	}
 	if err := ui.Run(app); err != nil {
 		return 0
 	}
