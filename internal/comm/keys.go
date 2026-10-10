@@ -55,6 +55,8 @@ func (k *Keyboard) Next(idle time.Duration) (Event, error) {
 	}
 
 	switch b {
+	case 0:
+		return k.doorway()
 	case 3:
 		return Event{Key: KeyEsc, Raw: b}, nil
 	case 8, 127:
@@ -63,7 +65,7 @@ func (k *Keyboard) Next(idle time.Duration) (Event, error) {
 		return Event{Key: KeyTab, Raw: b}, nil
 	case 10, 13:
 		if b == 13 {
-			k.peekEat(10, 20*time.Millisecond)
+			k.peekEat(20*time.Millisecond, 10, 0)
 		}
 		return Event{Key: KeyEnter, Raw: b}, nil
 	case 32:
@@ -107,25 +109,56 @@ func (k *Keyboard) readByte(idle time.Duration) (byte, error) {
 	return tmp[0], nil
 }
 
-func (k *Keyboard) peekEat(want byte, d time.Duration) {
+// peekEat swallows the next byte if it is one of want (CR LF, telnet CR NUL).
+func (k *Keyboard) peekEat(d time.Duration, want ...byte) {
 	b, err := k.readByte(d)
 	if err != nil {
 		return
 	}
-	if b != want {
-		k.buf = append([]byte{b}, k.buf...)
+	for _, w := range want {
+		if b == w {
+			return
+		}
 	}
+	k.buf = append([]byte{b}, k.buf...)
+}
+
+// doorway decodes DOS "doorway mode" keys: NUL followed by a BIOS scan code.
+func (k *Keyboard) doorway() (Event, error) {
+	sc, err := k.readByte(100 * time.Millisecond)
+	if err != nil {
+		return Event{Key: KeyNone}, nil
+	}
+	switch sc {
+	case 0x48:
+		return Event{Key: KeyUp}, nil
+	case 0x50:
+		return Event{Key: KeyDown}, nil
+	case 0x4B:
+		return Event{Key: KeyLeft}, nil
+	case 0x4D:
+		return Event{Key: KeyRight}, nil
+	case 0x47:
+		return Event{Key: KeyHome}, nil
+	case 0x4F:
+		return Event{Key: KeyEnd}, nil
+	case 0x49:
+		return Event{Key: KeyPgUp}, nil
+	case 0x51:
+		return Event{Key: KeyPgDn}, nil
+	}
+	return Event{Key: KeyNone, Raw: sc}, nil
 }
 
 func (k *Keyboard) escape(idle time.Duration) (Event, error) {
-	b, err := k.readByte(150 * time.Millisecond)
+	b, err := k.readByte(300 * time.Millisecond)
 	if err != nil {
 		return Event{Key: KeyEsc, Raw: 27}, nil
 	}
 	if b == '[' || b == 'O' {
 		seq := []byte{b}
 		for i := 0; i < 8; i++ {
-			nb, err := k.readByte(80 * time.Millisecond)
+			nb, err := k.readByte(200 * time.Millisecond)
 			if err != nil {
 				break
 			}
@@ -156,31 +189,38 @@ func decodeCSI(seq []byte) Event {
 		return Event{Key: KeyLeft}
 	case 'H':
 		return Event{Key: KeyHome}
-	case 'F':
+	case 'F', 'K':
+		// ESC[K is End in ANSI-BBS terminals (SyncTERM, NetRunner).
 		return Event{Key: KeyEnd}
+	case 'V':
+		return Event{Key: KeyPgUp}
+	case 'U':
+		return Event{Key: KeyPgDn}
 	case '~':
-		s := string(seq)
-		switch {
-		case containsNum(s, '1'), containsNum(s, '7'):
+		switch csiParam(seq) {
+		case 1, 7:
 			return Event{Key: KeyHome}
-		case containsNum(s, '4'), containsNum(s, '8'):
+		case 4, 8:
 			return Event{Key: KeyEnd}
-		case containsNum(s, '5'):
+		case 5:
 			return Event{Key: KeyPgUp}
-		case containsNum(s, '6'):
+		case 6:
 			return Event{Key: KeyPgDn}
 		}
 	}
 	return Event{Key: KeyNone, Raw: 27}
 }
 
-func containsNum(s string, d byte) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == d {
-			return true
+// csiParam returns the first numeric parameter of a CSI sequence ("[5;2~" -> 5).
+func csiParam(seq []byte) int {
+	n := 0
+	for _, c := range seq[1:] {
+		if c < '0' || c > '9' {
+			break
 		}
+		n = n*10 + int(c-'0')
 	}
-	return false
+	return n
 }
 
 func (k *Keyboard) eatIAC(idle time.Duration) (Event, error) {

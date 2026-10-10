@@ -18,7 +18,7 @@ The screen is 79×24.
 |---|---|
 | Space | Tag the file and move to the next one, or untag it |
 | Tab | Show up to 75 characters of the filename; any key restores the list |
-| V | View the selected file with the command in `filelist.ini` |
+| Enter | View the selected file with the command in `filelist.ini` |
 | N | List files from the last *n* days |
 | K | Search names and descriptions for a keyword |
 | W | Search filenames with `*` and `?` wildcards |

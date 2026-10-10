@@ -103,6 +103,10 @@ func Run(a *App) error {
 			a.move(-1)
 		case comm.KeyDown:
 			a.move(1)
+		case comm.KeyEnter:
+			if err := a.view(); err != nil {
+				a.flash(err.Error())
+			}
 		case comm.KeyLeft, comm.KeyPgUp:
 			a.page(-1)
 		case comm.KeyRight, comm.KeyPgDn:
@@ -137,11 +141,6 @@ func Run(a *App) error {
 			}
 			if a.listing != "" && (comm.KeyCharEquals(ev, 'C') || comm.KeyCharEquals(ev, 'A')) {
 				a.restoreArea()
-			}
-			if comm.KeyCharEquals(ev, 'V') {
-				if err := a.view(); err != nil {
-					a.flash(err.Error())
-				}
 			}
 			if comm.KeyCharEquals(ev, 'N') {
 				if err := a.doSearch(a.searchDays); err != nil {
@@ -342,7 +341,7 @@ func (a *App) draw() error {
 			tagged++
 		}
 	}
-	status := fmt.Sprintf(" N Days  K Key  W Wild  V View  SPACE Tag  TAB  ?  Q  %d/%d P%d/%d T:%d",
+	status := fmt.Sprintf(" N Days  K Key  W Wild  ENTER View  SPACE Tag  TAB ? Q  %d/%d P%d/%d T:%d",
 		min(a.cursor+1, a.n()), a.n(), a.curPage()+1, a.pageCount(), tagged)
 	b.WriteString(fmt.Sprintf("\x1b[%d;1H\x1b[0;30;47m%s\x1b[0m", rowStatus, padVis(status, screenW)))
 	_, err := io.WriteString(a.Out, b.String())

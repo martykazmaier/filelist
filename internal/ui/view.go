@@ -153,7 +153,7 @@ func (a *App) pager(title string, data []byte, runErr error) {
 			pc = 1
 		}
 		b.WriteString("\x1b[0;30;47m")
-		b.Write(elePad(fmt.Sprintf(" Pg %d/%d  UP/DN PgUp/PgDn  ESC/Q back ", page+1, pc), screenW))
+		b.Write(elePad(fmt.Sprintf(" Pg %d/%d  UP/DN PgUp/PgDn Home/End  ESC/Q back ", page+1, pc), screenW))
 		b.WriteString("\x1b[0m")
 		_, _ = a.Out.Write([]byte(b.String()))
 
@@ -170,6 +170,10 @@ func (a *App) pager(title string, data []byte, runErr error) {
 			if comm.KeyCharEquals(ev, 'Q') {
 				return
 			}
+		case comm.KeyHome:
+			page = 0
+		case comm.KeyEnd:
+			page = pc - 1
 		case comm.KeyUp, comm.KeyLeft, comm.KeyPgUp:
 			if page > 0 {
 				page--
