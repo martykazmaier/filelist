@@ -43,6 +43,8 @@ var (
 	procIoctlsocket = ws2_32.NewProc("ioctlsocket")
 	procRecv        = ws2_32.NewProc("recv")
 	procSend        = ws2_32.NewProc("send")
+
+	procGetHandleInformation = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetHandleInformation")
 )
 
 func FromDoorHandle(handle uintptr) (Stream, error) {
@@ -403,6 +405,55 @@ func (s *stdioStream) Write(p []byte) (int, error)        { return s.out.Write(p
 func (s *stdioStream) Close() error                       { RestoreConsole(); return nil }
 func (s *stdioStream) SetReadDeadline(t time.Time) error  { return nil }
 func (s *stdioStream) SetWriteDeadline(t time.Time) error { return nil }
+
+// DupForChild returns an inheritable SOCKET sharing sock's connection, made
+// the way EleBBS DupForDoor does it (WSADuplicateSocket + WSASocket). A plain
+// inherited copy of the door socket is not always accepted by Winsock in a
+// grandchild. release closes the copy once the child has exited.
+func DupForChild(sock uintptr) (child uintptr, release func()) {
+	if sock == 0 || sock == invalidSocket {
+		return sock, func() {}
+	}
+	var info windows.WSAProtocolInfo
+	if err := windows.WSADuplicateSocket(windows.Handle(sock), windows.GetCurrentProcessId(), &info); err != nil {
+		return sock, func() {}
+	}
+	nt, err := windows.WSASocket(info.AddressFamily, info.SocketType, info.Protocol, &info, 0, 0)
+	if err != nil {
+		nt, err = windows.WSASocket(info.AddressFamily, info.SocketType, info.Protocol, &info, 0, windows.WSA_FLAG_OVERLAPPED)
+		if err != nil {
+			return sock, func() {}
+		}
+	}
+	_ = windows.SetHandleInformation(nt, windows.HANDLE_FLAG_INHERIT, windows.HANDLE_FLAG_INHERIT)
+	return uintptr(nt), func() {
+		_ = windows.SetHandleInformation(nt, windows.HANDLE_FLAG_INHERIT, 0)
+		_ = windows.Closesocket(nt)
+	}
+}
+
+// SocketDiag describes how Winsock in this process sees handle h, for the
+// viewer error screen.
+func SocketDiag(h uintptr) string {
+	wh := windows.Handle(h)
+	var flags uint32
+	hi := "ok"
+	if r, _, e := procGetHandleInformation.Call(h, uintptr(unsafe.Pointer(&flags))); r == 0 {
+		hi = e.Error()
+	}
+	typ, err := windows.GetsockoptInt(wh, solSocket, 0x1008)
+	so := fmt.Sprintf("type %d", typ)
+	if err != nil {
+		so = err.Error()
+	}
+	peer := "ok"
+	if sa, err := windows.Getpeername(wh); err != nil {
+		peer = err.Error()
+	} else if in4, ok := sa.(*windows.SockaddrInet4); ok {
+		peer = fmt.Sprintf("%d.%d.%d.%d:%d", in4.Addr[0], in4.Addr[1], in4.Addr[2], in4.Addr[3], in4.Port)
+	}
+	return fmt.Sprintf("handle %d: handleinfo=%s flags=%#x  SO_TYPE=%s  getpeername=%s", h, hi, flags, so, peer)
+}
 
 // Hangup drops the caller by shutting down the inherited socket in both
 // directions; the BBS then sees the connection close.

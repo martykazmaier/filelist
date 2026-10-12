@@ -56,11 +56,13 @@ c:\ele\xview\xview @ *N
 
 | Token | Replaced with |
 |---|---|
-| `@` | Full path and filename of the selected file (no quotes) |
+| `@` | Full path and filename of the selected file, quoted when the long file name has spaces |
 | `*N` | Node number |
-| `*H` | Socket handle from `door32.sys` |
+| `*H` or `*W` | Socket handle for the viewer to use |
 
 The command runs with the node directory as its working directory.
+
+Socket viewers (Win32 door32 programs) get their own copy of the caller's socket, made the same way EleBBS hands sockets to doors. The door32.sys handle can't be passed on a second time unchanged. `*H`/`*W` expand to that copy's handle. If the command is `viewer.exe` and has no handle token, `-H<handle>` is added for you.
 
 For a DOS viewer under NetFoss, point the command at `nf.bat`. The door adds `/N<node> /H<handle>` and opens a real console for it:
 

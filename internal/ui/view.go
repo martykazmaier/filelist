@@ -35,22 +35,39 @@ func (a *App) view() error {
 		}
 	}
 	full = strings.ReplaceAll(filepath.Clean(full), `/`, `\`)
-	expanded := expandView(cmdLine, full, a.NodeNum, a.Handle)
-	if isNetFoss(cmdLine) && a.Handle != 0 && !hasHandleToken(cmdLine) {
-		expanded = insertAfterFirst(expanded, fmt.Sprintf("/N%d /H%d", a.NodeNum, a.Handle))
-		expanded = stripTrailingArg(expanded, fmt.Sprintf("/N%d", a.NodeNum))
-		expanded = stripTrailingArg(expanded, fmt.Sprintf("/n%d", a.NodeNum))
-	}
 	if isNetFoss(cmdLine) {
+		expanded := expandView(cmdLine, full, a.NodeNum, a.Handle)
+		if a.Handle != 0 && !hasHandleToken(cmdLine) {
+			expanded = insertAfterFirst(expanded, fmt.Sprintf("/N%d /H%d", a.NodeNum, a.Handle))
+			expanded = stripTrailingArg(expanded, fmt.Sprintf("/N%d", a.NodeNum))
+			expanded = stripTrailingArg(expanded, fmt.Sprintf("/n%d", a.NodeNum))
+		}
 		return comm.RunInheritedConsole(expanded, a.Node, a.Handle)
 	}
-	cmd := shellCommand(expanded)
+
+	// The door socket from EleBBS cannot be passed on a second time as-is,
+	// so the child gets its own Winsock duplicate and is told its number.
+	child, release := comm.DupForChild(a.Handle)
+	defer release()
+	expanded := expandView(cmdLine, full, a.NodeNum, child)
+	if child != a.Handle && !hasHandleToken(cmdLine) && isViewer(cmdLine) {
+		expanded = insertAfterFirst(expanded, fmt.Sprintf("-H%d", child))
+	}
+	cmd := shellCommand(expanded, child, a.Handle)
 	if a.Node != "" {
 		cmd.Dir = a.Node
 	}
+	comm.PrepareHandoff(a.Handle)
 	out, err := cmd.CombinedOutput()
+	comm.RestoreHandoff(a.Handle)
 	if err == nil && strings.TrimSpace(string(out)) == "" {
 		return nil
+	}
+	if err != nil && a.Handle != 0 {
+		out = append(out, []byte("\r\nfilelist: door "+comm.SocketDiag(a.Handle))...)
+		if child != a.Handle {
+			out = append(out, []byte("\r\nfilelist: child "+comm.SocketDiag(child))...)
+		}
 	}
 	a.pager(expanded, out, err)
 	return nil
@@ -64,9 +81,35 @@ func expandView(tmpl, fullPath string, node int, handle uintptr) string {
 		"*n", n,
 		"*H", h,
 		"*h", h,
-		"@", fullPath,
+		"*W", h,
+		"*w", h,
+		`"@"`, `"`+fullPath+`"`,
+		"@", quoteArg(fullPath),
 	)
 	return r.Replace(tmpl)
+}
+
+// quoteArg quotes a path for cmd.exe when it contains spaces or shell
+// characters (long file names like "Armor Hunter ... (BDRip ...).mkv").
+func quoteArg(s string) string {
+	if strings.ContainsAny(s, " &()[]{}^=;!'+,`~") {
+		return `"` + s + `"`
+	}
+	return s
+}
+
+func isViewer(cmd string) bool {
+	cmd = strings.TrimSpace(cmd)
+	exe := cmd
+	if strings.HasPrefix(cmd, `"`) {
+		if i := strings.Index(cmd[1:], `"`); i >= 0 {
+			exe = cmd[1 : i+1]
+		}
+	} else if i := strings.IndexByte(cmd, ' '); i >= 0 {
+		exe = cmd[:i]
+	}
+	base := strings.ToLower(filepath.Base(strings.ReplaceAll(exe, `\`, `/`)))
+	return base == "viewer.exe" || base == "viewer"
 }
 
 func isNetFoss(cmd string) bool {
@@ -76,7 +119,7 @@ func isNetFoss(cmd string) bool {
 
 func hasHandleToken(cmd string) bool {
 	l := strings.ToLower(cmd)
-	return strings.Contains(l, "*h") || strings.Contains(l, "/h")
+	return strings.Contains(l, "*h") || strings.Contains(l, "*w") || strings.Contains(l, "/h") || strings.Contains(l, " -h")
 }
 
 func insertAfterFirst(cmd, flags string) string {
@@ -128,7 +171,7 @@ func (a *App) pager(title string, data []byte, runErr error) {
 	}
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
-	lines := strings.Split(text, "\n")
+	lines := wrapPlain(strings.Split(text, "\n"), screenW)
 
 	page := 0
 	rows := 22
@@ -184,6 +227,24 @@ func (a *App) pager(title string, data []byte, runErr error) {
 			}
 		}
 	}
+}
+
+// wrapPlain splits long lines at w columns. Lines carrying ANSI escapes are
+// left whole so color sequences are never cut in half.
+func wrapPlain(lines []string, w int) []string {
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		for len(l) > w && !strings.Contains(l, "\x1b") {
+			cut := strings.LastIndexByte(l[:w], ' ')
+			if cut <= 0 {
+				cut = w
+			}
+			out = append(out, l[:cut])
+			l = strings.TrimLeft(l[cut:], " ")
+		}
+		out = append(out, l)
+	}
+	return out
 }
 
 func elePad(s string, w int) []byte {

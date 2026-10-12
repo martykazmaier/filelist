@@ -26,8 +26,18 @@ func FromDoorHandle(handle uintptr) (Stream, error) {
 	if err != nil {
 		return nil, fmt.Errorf("socket %d: %w", handle, err)
 	}
+	doorFile = f
 	return WrapRaw(c), nil
 }
+
+// doorFile holds the original door32.sys descriptor so its finalizer never
+// closes it; socket doors started from the viewer expect that fd number.
+var doorFile *os.File
+
+func SocketDiag(h uintptr) string { return fmt.Sprintf("fd %d", h) }
+
+// DupForChild returns sock itself: the door fd is inherited unchanged.
+func DupForChild(sock uintptr) (uintptr, func()) { return sock, func() {} }
 
 func PrepareHandoff(uintptr) {}
 
