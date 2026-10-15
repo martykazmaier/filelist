@@ -1,7 +1,11 @@
 package comm
 
 import (
+	"errors"
 	"io"
+	"net"
+	"os"
+	"syscall"
 	"time"
 	"unicode/utf8"
 )
@@ -265,6 +269,29 @@ func KeyCharEquals(ev Event, ch rune) bool {
 		ch -= 32
 	}
 	return r == ch
+}
+
+// IsReadTimeout reports a read that stopped because the idle deadline ran out,
+// including Windows WSAETIMEDOUT (10060) which does not wrap os.ErrDeadlineExceeded.
+func IsReadTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		return true
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case 10060, 110, 60: // WSAETIMEDOUT, ETIMEDOUT (Linux/BSD)
+			return true
+		}
+	}
+	return false
 }
 
 func DecodeRune(b byte) rune {

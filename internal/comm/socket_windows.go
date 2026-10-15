@@ -17,6 +17,7 @@ const (
 	soRcvTimeo     = 0x1006
 	soSndTimeo     = 0x1005
 	soError        = 0x1007
+	soLinger       = 0x0080
 	ipprotoTCP     = 6
 	tcpNoDelay     = 1
 	fionbio        = 0x8004667E
@@ -455,11 +456,16 @@ func SocketDiag(h uintptr) string {
 	return fmt.Sprintf("handle %d: handleinfo=%s flags=%#x  SO_TYPE=%s  getpeername=%s", h, hi, flags, so, peer)
 }
 
-// Hangup drops the caller by shutting down the inherited socket in both
-// directions; the BBS then sees the connection close.
+// Hangup drops the caller. Shutdown alone fails on the sockets EleBBS now
+// hands doors (Winsock reports WSAENOTCONN even though send/recv work), so
+// this also does an abortive close (linger 0) to send RST. EleBBS then sees
+// carrier loss instead of resuming the session.
 func Hangup(handle uintptr) {
 	if handle == 0 || handle == invalidSocket {
 		return
 	}
-	_ = windows.Shutdown(windows.Handle(handle), windows.SHUT_RDWR)
+	h := windows.Handle(handle)
+	_ = windows.SetsockoptLinger(h, solSocket, soLinger, &windows.Linger{Onoff: 1, Linger: 0})
+	_ = windows.Shutdown(h, windows.SHUT_RDWR)
+	_ = windows.Closesocket(h)
 }

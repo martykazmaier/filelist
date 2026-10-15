@@ -2,6 +2,8 @@ package comm
 
 import (
 	"bytes"
+	"os"
+	"syscall"
 	"testing"
 )
 
@@ -42,5 +44,20 @@ func TestKeyboardNavigationKeys(t *testing.T) {
 		if ev, _ := k.Next(0); !KeyCharEquals(ev, 'x') {
 			t.Errorf("%s: trailing bytes not consumed cleanly: %+v", c.name, ev)
 		}
+	}
+}
+
+func TestIsReadTimeout(t *testing.T) {
+	if IsReadTimeout(nil) {
+		t.Fatal("nil")
+	}
+	if !IsReadTimeout(os.ErrDeadlineExceeded) {
+		t.Fatal("deadline")
+	}
+	if !IsReadTimeout(syscall.Errno(10060)) {
+		t.Fatal("WSAETIMEDOUT")
+	}
+	if IsReadTimeout(os.ErrClosed) {
+		t.Fatal("closed is not a timeout")
 	}
 }

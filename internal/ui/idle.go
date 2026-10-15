@@ -9,7 +9,7 @@ import (
 	"filelist/internal/comm"
 )
 
-var errIdle = errors.New("inactivity timeout")
+var ErrIdle = errors.New("inactivity timeout")
 
 const idleWarnBefore = 30 * time.Second
 
@@ -17,7 +17,7 @@ const idleWarnBefore = 30 * time.Second
 // caller 30 seconds before the limit and hanging up when it runs out.
 func (a *App) nextKey() (comm.Event, error) {
 	if a.idled {
-		return comm.Event{Key: comm.KeyHangup}, errIdle
+		return comm.Event{Key: comm.KeyHangup}, ErrIdle
 	}
 	if a.Idle <= 0 {
 		for {
@@ -38,14 +38,14 @@ func (a *App) nextKey() (comm.Event, error) {
 			wait = time.Millisecond
 		}
 		ev, err := a.Keys.Next(wait)
-		if errors.Is(err, os.ErrDeadlineExceeded) {
+		if comm.IsReadTimeout(err) || errors.Is(err, os.ErrDeadlineExceeded) {
 			if !warned {
 				warned = true
 				a.idleWarn()
 				continue
 			}
 			a.idleHangup()
-			return comm.Event{Key: comm.KeyHangup}, errIdle
+			return comm.Event{Key: comm.KeyHangup}, ErrIdle
 		}
 		if err != nil || ev.Key != comm.KeyNone {
 			return ev, err

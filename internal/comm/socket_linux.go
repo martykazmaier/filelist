@@ -97,11 +97,17 @@ func (s *stdioStream) Close() error                       { RestoreConsole(); re
 func (s *stdioStream) SetReadDeadline(t time.Time) error  { return nil }
 func (s *stdioStream) SetWriteDeadline(t time.Time) error { return nil }
 
-// Hangup drops the caller by shutting down the inherited socket in both
-// directions; the BBS then sees the connection close.
+// Hangup drops the caller with an abortive close so the BBS sees carrier loss
+// instead of resuming the session.
 func Hangup(handle uintptr) {
 	if handle == 0 || handle == ^uintptr(0) {
 		return
 	}
-	_ = unix.Shutdown(int(handle), unix.SHUT_RDWR)
+	fd := int(handle)
+	_ = unix.SetsockoptLinger(fd, unix.SOL_SOCKET, unix.SO_LINGER, &unix.Linger{Onoff: 1, Linger: 0})
+	_ = unix.Shutdown(fd, unix.SHUT_RDWR)
+	if doorFile != nil {
+		_ = doorFile.Close()
+		doorFile = nil
+	}
 }

@@ -25,8 +25,8 @@ func TestNextKeyIdleHangup(t *testing.T) {
 		Hangup: func() { hung = true },
 	}
 	_, err := a.nextKey()
-	if !errors.Is(err, errIdle) {
-		t.Fatalf("err = %v, want errIdle", err)
+	if !errors.Is(err, ErrIdle) {
+		t.Fatalf("err = %v, want ErrIdle", err)
 	}
 	if !hung {
 		t.Fatal("Hangup not called")
@@ -34,8 +34,8 @@ func TestNextKeyIdleHangup(t *testing.T) {
 	if !strings.Contains(out.String(), "Inactivity Timeout") {
 		t.Fatalf("no timeout message: %q", out.String())
 	}
-	if _, err := a.nextKey(); !errors.Is(err, errIdle) {
-		t.Fatalf("second nextKey err = %v, want errIdle", err)
+	if _, err := a.nextKey(); !errors.Is(err, ErrIdle) {
+		t.Fatalf("second nextKey err = %v, want ErrIdle", err)
 	}
 }
 

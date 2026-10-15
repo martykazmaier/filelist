@@ -69,8 +69,7 @@ func (a *App) view() error {
 			out = append(out, []byte("\r\nfilelist: child "+comm.SocketDiag(child))...)
 		}
 	}
-	a.pager(expanded, out, err)
-	return nil
+	return a.pager(expanded, out, err)
 }
 
 func expandView(tmpl, fullPath string, node int, handle uintptr) string {
@@ -161,7 +160,7 @@ func stripTrailingArg(cmd, arg string) string {
 	return cmd
 }
 
-func (a *App) pager(title string, data []byte, runErr error) {
+func (a *App) pager(title string, data []byte, runErr error) error {
 	text := string(data)
 	if runErr != nil {
 		text = fmt.Sprintf("View failed: %v\r\n%s", runErr, text)
@@ -202,16 +201,16 @@ func (a *App) pager(title string, data []byte, runErr error) {
 
 		ev, err := a.nextKey()
 		if err != nil {
-			return
+			return err
 		}
 		switch ev.Key {
 		case comm.KeyNone:
 			continue
 		case comm.KeyEsc, comm.KeyHangup:
-			return
+			return nil
 		case comm.KeyChar:
 			if comm.KeyCharEquals(ev, 'Q') {
-				return
+				return nil
 			}
 		case comm.KeyHome:
 			page = 0

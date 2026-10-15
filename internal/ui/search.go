@@ -21,7 +21,10 @@ func (a *App) prompt(label string) (string, error) {
 			return "", err
 		}
 		ev, err := a.nextKey()
-		if err != nil || ev.Key == comm.KeyHangup {
+		if err != nil {
+			return "", err
+		}
+		if ev.Key == comm.KeyHangup {
 			return "", io.EOF
 		}
 		switch ev.Key {
@@ -55,7 +58,10 @@ func (a *App) promptScope() (elebbs.ScanScope, error) {
 			return 0, err
 		}
 		ev, err := a.nextKey()
-		if err != nil || ev.Key == comm.KeyHangup {
+		if err != nil {
+			return 0, err
+		}
+		if ev.Key == comm.KeyHangup {
 			return 0, io.EOF
 		}
 		switch ev.Key {

@@ -105,6 +105,9 @@ func Run(a *App) error {
 			a.move(1)
 		case comm.KeyEnter:
 			if err := a.view(); err != nil {
+				if errors.Is(err, ErrIdle) {
+					return a.shutdown()
+				}
 				a.flash(err.Error())
 			}
 		case comm.KeyLeft, comm.KeyPgUp:
@@ -165,6 +168,9 @@ func Run(a *App) error {
 }
 
 func (a *App) shutdown() error {
+	if a.idled {
+		return ErrIdle
+	}
 	_, _ = a.Out.Write([]byte("\x1b[0m\x1b[?25h\x1b[24;1H\x1b[K\r\n"))
 	return nil
 }

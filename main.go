@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"filelist/internal/comm"
 	"filelist/internal/door32"
@@ -125,8 +127,12 @@ func run() int {
 		app.Idle = elebbs.ReadUserTimeOut(sysPath)
 		app.Hangup = func() { comm.Hangup(drop.Handle) }
 	}
-	if err := ui.Run(app); err != nil {
-		return 0
+	if err := ui.Run(app); errors.Is(err, ui.ErrIdle) {
+		if app.Hangup != nil {
+			app.Hangup()
+		}
+		time.Sleep(500 * time.Millisecond)
+		return 1
 	}
 	return 0
 }
