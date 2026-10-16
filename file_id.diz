@@ -1,7 +1,10 @@
-+------------------------------------------+
-|        Ele File Lister from Shurato      |
-|Will replace any light bar file lister and|
-|viewer.  Supports everything you could    |
-|immagine.  New file, search for keyword   |
-|and file name with wild cards.            |
-+------------------------------------------+
+EleBBS lightbar file lister door
+Browse files in the current file area
+Tag files for batch download
+Search names and descriptions by keyword
+Find recent files and wildcard matches
+View archives using the configured command
+Displays with ANSI color and CP437 support
+Uses the inherited DOOR32 socket
+Includes Windows and Linux builds
+See README for installation and keys
